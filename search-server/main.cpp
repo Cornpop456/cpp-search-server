@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <map>
 #include <set>
@@ -41,7 +42,13 @@ vector<string> SplitIntoWords(const string& text) {
 
 struct Document {
     int id;
-    int relevance;
+    double relevance;
+};
+
+struct TfDoc {
+    int id;
+    int words_count;
+    map<string, int> words_freq;
 };
 
 struct ParsedQuery {
@@ -58,9 +65,22 @@ public:
     }
 
     void AddDocument(int document_id, const string& document) {
-        for (const string& word : SplitIntoWordsNoStop(document)) {
+        TfDoc next_tf;
+        map<string, int> doc_freq;
+
+        vector<string> words = SplitIntoWordsNoStop(document);
+
+        next_tf.id = document_id;
+        next_tf.words_count = words.size();
+
+        for (const string& word : words) {
             word_to_documents_[word].insert(document_id);
+
+            ++next_tf.words_freq[word];
         }
+
+        document_count_ += 1;
+        tf_docs_.push_back(next_tf);
     }
 
     vector<Document> FindTopDocuments(const string& query) const {
@@ -81,7 +101,24 @@ public:
 
 private:
     map<string, set<int>> word_to_documents_;
+    vector<TfDoc> tf_docs_;
     set<string> stop_words_;
+    int document_count_ = 0;
+
+
+    vector<double> CountIDF(vector<string>& words) const {
+        vector<double> res;
+
+        for (auto& word : words) {
+            if (word_to_documents_.count(word) == 0) {
+                res.push_back(0);
+            } else {
+                res.push_back(log(static_cast<double>(document_count_) / word_to_documents_.at(word).size()));
+            }
+        }
+
+        return res;
+    }
 
     ParsedQuery ParseQuery(const string& query) const {
       const vector<string> query_words = SplitIntoWordsNoStop(query);
@@ -111,16 +148,28 @@ private:
     vector<Document> FindAllDocuments(const string& query) const {
         ParsedQuery query_struct = ParseQuery(query);
 
-        map<int, int> document_to_relevance;
-        
-        for (const string& word : query_struct.plus_words) {
-            if (word_to_documents_.count(word) == 0) {
-                continue;
+        vector<double> idf = CountIDF(query_struct.plus_words);
+
+        map<int, double> document_to_relevance;
+
+        for (auto& curr_doc : tf_docs_) {
+            double rel = 0;
+
+            for (int i = 0; i < query_struct.plus_words.size(); ++i) {
+                string& word = query_struct.plus_words[i];
+                
+                if (curr_doc.words_freq.count(word) == 0) {
+                    continue;
+                }
+
+                rel += idf[i] * (curr_doc.words_freq.at(word) / static_cast<double>(curr_doc.words_count));
             }
-            for (const int document_id : word_to_documents_.at(word)) {
-                ++document_to_relevance[document_id];
+
+            if (rel > 0) {
+                document_to_relevance[curr_doc.id] = rel;
             }
         }
+        
 
         for (const string& word : query_struct.minus_words) {
             if (word_to_documents_.count(word) == 0) {
