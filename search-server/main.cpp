@@ -1,3 +1,5 @@
+#include <numeric>
+#include <execution>
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -36,18 +38,20 @@ vector<string> SplitIntoWords(const string& text) {
         }
     }
     words.push_back(word);
-    
+
     return words;
 }
 
 struct Document {
     int id;
     double relevance;
+    int rating;
 };
 
 struct TfDoc {
     int id;
     int words_count;
+    int rating;
     map<string, int> words_freq;
 };
 
@@ -64,13 +68,14 @@ public:
         }
     }
 
-    void AddDocument(int document_id, const string& document) {
+    void AddDocument(int document_id, const string& document, vector<int> ratings) {
         TfDoc next_tf;
         map<string, int> doc_freq;
 
         vector<string> words = SplitIntoWordsNoStop(document);
 
         next_tf.id = document_id;
+        next_tf.rating = ComputeAverageRating(ratings);
         next_tf.words_count = words.size();
 
         for (const string& word : words) {
@@ -85,10 +90,10 @@ public:
 
     vector<Document> FindTopDocuments(const string& query) const {
         auto matched_documents = FindAllDocuments(query);
-        
+
         sort(
-            matched_documents.begin(),   
-            matched_documents.end(), 
+            matched_documents.begin(),
+            matched_documents.end(),
             [](const Document& lhs, const Document& rhs) {
                 return lhs.relevance > rhs.relevance;
             }
@@ -104,6 +109,11 @@ private:
     vector<TfDoc> tf_docs_;
     set<string> stop_words_;
     int document_count_ = 0;
+
+    static int ComputeAverageRating(const vector<int>& ratings) {
+         int ratings_count = ratings.size();
+         return reduce(execution::par, ratings.begin(), ratings.end(), 0) / ratings_count;
+    }
 
 
     vector<double> CountIDF(vector<string>& words) const {
@@ -150,14 +160,14 @@ private:
 
         vector<double> idf = CountIDF(query_struct.plus_words);
 
-        map<int, double> document_to_relevance;
+        map<int, pair<double, int>> document_to_relevance;
 
         for (auto& curr_doc : tf_docs_) {
             double rel = 0;
 
-            for (int i = 0; i < query_struct.plus_words.size(); ++i) {
+            for (int i = 0; i < static_cast<int>(query_struct.plus_words.size()); ++i) {
                 string& word = query_struct.plus_words[i];
-                
+
                 if (curr_doc.words_freq.count(word) == 0) {
                     continue;
                 }
@@ -166,10 +176,10 @@ private:
             }
 
             if (rel > 0) {
-                document_to_relevance[curr_doc.id] = rel;
+                document_to_relevance[curr_doc.id] = {rel, curr_doc.rating};
             }
         }
-        
+
 
         for (const string& word : query_struct.minus_words) {
             if (word_to_documents_.count(word) == 0) {
@@ -179,13 +189,14 @@ private:
                 document_to_relevance.erase(document_id);
             }
         }
-    
+
         vector<Document> matched_documents;
-        
-        for (auto [document_id, relevance] : document_to_relevance) {
-            matched_documents.push_back({document_id, relevance});
+
+        for (auto [document_id, rel_rating] : document_to_relevance) {
+            auto [rel, rate] = rel_rating;
+            matched_documents.push_back({document_id, rel, rate});
         }
-      
+
         return matched_documents;
     }
 };
@@ -193,22 +204,46 @@ private:
 SearchServer CreateSearchServer() {
     SearchServer search_server;
     search_server.SetStopWords(ReadLine());
-  
+
     const int document_count = ReadLineWithNumber();
     for (int document_id = 0; document_id < document_count; ++document_id) {
-        search_server.AddDocument(document_id, ReadLine());
+        string doc = ReadLine();
+
+        int reviews_number;
+
+        cin >> reviews_number;
+
+        vector<int> reviews;
+
+        for (int i = 0; i < reviews_number; ++i) {
+            int review;
+
+            cin >> review;
+
+            reviews.push_back(review);
+        }
+
+        ReadLine()
+
+        search_server.AddDocument(document_id, doc, reviews);
     }
-    
+
     return search_server;
 }
 
 
 int main() {
     const SearchServer search_server = CreateSearchServer();
-  
+
     const string query = ReadLine();
 
-    for (auto [document_id, relevance] : search_server.FindTopDocuments(query)) {
-        cout << "{ document_id = " << document_id << ", relevance = " << relevance << " }" << endl;
+    for (auto [document_id, relevance, rating] : search_server.FindTopDocuments(query)) {
+        cout << "{ document_id = "
+             << document_id
+             << ", relevance = "
+             << relevance
+             << ", rating = "
+             << rating
+             << " }" << endl;
     }
 }
