@@ -68,7 +68,7 @@ public:
         }
     }
 
-    void AddDocument(int document_id, const string& document, vector<int> ratings) {
+    void AddDocument(int document_id, const string& document, const vector<int>& ratings) {
         TfDoc next_tf;
         map<string, int> doc_freq;
 
