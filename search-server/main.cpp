@@ -111,8 +111,12 @@ private:
     int document_count_ = 0;
 
     static int ComputeAverageRating(const vector<int>& ratings) {
-         int ratings_count = ratings.size();
-         return reduce(execution::par, ratings.begin(), ratings.end(), 0) / ratings_count;
+        if (ratings.empty()) {
+            return 0;
+        }
+        
+        int ratings_count = ratings.size();
+        return reduce(execution::par, ratings.begin(), ratings.end(), 0) / ratings_count;
     }
 
 
