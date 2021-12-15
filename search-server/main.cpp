@@ -123,7 +123,9 @@ private:
             if (word_to_documents_.count(word) == 0) {
                 res.push_back(0);
             } else {
-                res.push_back(log(static_cast<double>(document_count_) / word_to_documents_.at(word).size()));
+                double idf = log(static_cast<double>(document_count_) / word_to_documents_.at(word).size());
+
+                res.push_back(idf);
             }
         }
 
@@ -164,6 +166,7 @@ private:
 
         for (auto& curr_doc : tf_docs_) {
             double rel = 0;
+            bool no_match = true;
 
             for (int i = 0; i < static_cast<int>(query_struct.plus_words.size()); ++i) {
                 string& word = query_struct.plus_words[i];
@@ -172,12 +175,15 @@ private:
                     continue;
                 }
 
+                no_match = false;
+
                 rel += idf[i] * (curr_doc.words_freq.at(word) / static_cast<double>(curr_doc.words_count));
             }
 
-            if (rel > 0) {
+            if (!no_match) {
                 document_to_relevance[curr_doc.id] = {rel, curr_doc.rating};
             }
+            
         }
 
 
