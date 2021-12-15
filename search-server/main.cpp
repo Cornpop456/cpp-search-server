@@ -136,7 +136,7 @@ private:
       const vector<string> query_words = SplitIntoWordsNoStop(query);
       ParsedQuery query_struct;
 
-      for (const string word : query_words) {
+      for (const string& word : query_words) {
         if (word.at(0) == '-') {
           query_struct.minus_words.push_back(word.substr(1));
         } else {
