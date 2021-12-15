@@ -223,7 +223,7 @@ SearchServer CreateSearchServer() {
             reviews.push_back(review);
         }
 
-        ReadLine()
+        ReadLine();
 
         search_server.AddDocument(document_id, doc, reviews);
     }
