@@ -13,6 +13,13 @@ using namespace std;
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
 
+enum class DocumentStatus  {
+      ACTUAL,
+      IRRELEVANT,
+      BANNED,
+      REMOVED
+};
+
 string ReadLine() {
     string s;
     getline(cin, s);
@@ -46,6 +53,7 @@ struct Document {
     int id;
     double relevance;
     int rating;
+    DocumentStatus status;
 };
 
 struct TfDoc {
@@ -68,7 +76,12 @@ public:
         }
     }
 
-    void AddDocument(int document_id, const string& document, const vector<int>& ratings) {
+    void AddDocument(int document_id, 
+                    const string& document, 
+                    DocumentStatus status, 
+                    const vector<int>& ratings) {
+        
+        id_to_status_.emplace(document_id, status);
         TfDoc next_tf;
         map<string, int> doc_freq;
 
@@ -88,26 +101,29 @@ public:
         tf_docs_.push_back(next_tf);
     }
 
-    vector<Document> FindTopDocuments(const string& query) const {
+    vector<Document> FindTopDocuments(const string& query, DocumentStatus status) const {
         auto matched_documents = FindAllDocuments(query);
 
+        auto filtered_documents = FilterDocuments(matched_documents, status);
+
         sort(
-            matched_documents.begin(),
-            matched_documents.end(),
+            filtered_documents.begin(),
+            filtered_documents.end(),
             [](const Document& lhs, const Document& rhs) {
                 return lhs.relevance > rhs.relevance;
             }
         );
-        if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
-          matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
+        if (filtered_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
+          filtered_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
         }
-        return matched_documents;
+        return filtered_documents;
     }
 
 private:
     map<string, set<int>> word_to_documents_;
     vector<TfDoc> tf_docs_;
     set<string> stop_words_;
+    map<int, DocumentStatus> id_to_status_;
     int document_count_ = 0;
 
     static int ComputeAverageRating(const vector<int>& ratings) {
@@ -117,6 +133,18 @@ private:
         
         int ratings_count = ratings.size();
         return reduce(execution::par, ratings.begin(), ratings.end(), 0) / ratings_count;
+    }
+
+    vector<Document> FilterDocuments(const vector<Document>& docs, DocumentStatus status) const {
+        vector<Document> filtered;
+
+        for (const auto& doc: docs) {
+            if (doc.status == status) {
+                filtered.push_back(doc);
+            }
+        }
+
+        return filtered;
     }
 
 
@@ -204,56 +232,81 @@ private:
 
         for (auto [document_id, rel_rating] : document_to_relevance) {
             auto [rel, rate] = rel_rating;
-            matched_documents.push_back({document_id, rel, rate});
+            matched_documents.push_back({document_id, rel, rate, id_to_status_.at(document_id)});
         }
 
         return matched_documents;
     }
 };
 
-SearchServer CreateSearchServer() {
-    SearchServer search_server;
-    search_server.SetStopWords(ReadLine());
 
-    const int document_count = ReadLineWithNumber();
-    for (int document_id = 0; document_id < document_count; ++document_id) {
-        string doc = ReadLine();
-
-        int reviews_number;
-
-        cin >> reviews_number;
-
-        vector<int> reviews;
-
-        for (int i = 0; i < reviews_number; ++i) {
-            int review;
-
-            cin >> review;
-
-            reviews.push_back(review);
-        }
-
-        ReadLine();
-
-        search_server.AddDocument(document_id, doc, reviews);
-    }
-
-    return search_server;
+void PrintDocument(const Document& document) {
+    cout << "{ "s
+         << "document_id = "s << document.id << ", "s
+         << "relevance = "s << document.relevance << ", "s
+         << "rating = "s << document.rating
+         << " }"s << endl;
 }
 
 
 int main() {
-    const SearchServer search_server = CreateSearchServer();
+    SearchServer search_server;
+    search_server.SetStopWords("и в на"s);
 
-    const string query = ReadLine();
+    search_server.AddDocument(0, "белый кот и модный ошейник"s,        DocumentStatus::ACTUAL, {8, -3});
+    search_server.AddDocument(1, "пушистый кот пушистый хвост"s,       DocumentStatus::ACTUAL, {7, 2, 7});
+    search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, {5, -12, 2, 1});
+    search_server.AddDocument(3, "ухоженный скворец евгений"s,         DocumentStatus::BANNED, {9});
 
-    for (auto [document_id, relevance, rating] : search_server.FindTopDocuments(query)) {
-        cout << "{ document_id = "
-             << document_id
-             << ", relevance = "
-             << relevance
-             << ", rating = "
-             << rating
-             << " }" << endl;
+    cout << "ACTUAL:"s << endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::ACTUAL)) {
+        PrintDocument(document);
     }
+
+    cout << "BANNED:"s << endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::BANNED)) {
+        PrintDocument(document);
+    }
+
+    return 0;
+} 
+
+
+SearchServer CreateSearchServer() {
+    SearchServer search_server;
+    search_server.SetStopWords(ReadLine());
+ 
+    const int document_count = ReadLineWithNumber();
+    for (int document_id = 0; document_id < document_count; ++document_id) {
+        const string document = ReadLine();
+ 
+        int status_raw;
+        cin >> status_raw;
+ 
+        int ratings_size;
+        cin >> ratings_size;
+        
+        vector<int> ratings(ratings_size, 0);
+        for (int& rating : ratings) {
+            cin >> rating;
+        }
+        
+        search_server.AddDocument(document_id, document, static_cast<DocumentStatus>(status_raw), ratings);
+        ReadLine();
+    }
+    
+    return search_server;
+}
+ 
+ 
+int test_main() {
+    const SearchServer search_server = CreateSearchServer();
+ 
+    const string query = ReadLine();
+    const DocumentStatus status = static_cast<DocumentStatus>(ReadLineWithNumber());
+    for (const Document& document : search_server.FindTopDocuments(query, status)) {
+        PrintDocument(document);
+    }
+ 
+    return 0;
 }
