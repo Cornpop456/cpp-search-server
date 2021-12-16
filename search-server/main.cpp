@@ -101,7 +101,9 @@ public:
         tf_docs_.push_back(next_tf);
     }
 
-    vector<Document> FindTopDocuments(const string& query, DocumentStatus status) const {
+    vector<Document> FindTopDocuments(
+        const string& query, 
+        DocumentStatus status = DocumentStatus::ACTUAL) const {
         auto matched_documents = FindAllDocuments(query);
 
         auto filtered_documents = FilterDocuments(matched_documents, status);
@@ -259,7 +261,7 @@ int main() {
     search_server.AddDocument(3, "ухоженный скворец евгений"s,         DocumentStatus::BANNED, {9});
 
     cout << "ACTUAL:"s << endl;
-    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::ACTUAL)) {
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s)) {
         PrintDocument(document);
     }
 
