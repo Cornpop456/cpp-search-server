@@ -215,6 +215,10 @@ private:
       ParsedQuery query_struct;
 
       for (const string& word : query_words) {
+        if (word.size() == 0) {
+             continue;
+        }
+
         if (word.at(0) == '-') {
           query_struct.minus_words.insert(word.substr(1));
         } else {
