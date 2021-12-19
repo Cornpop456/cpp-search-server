@@ -56,11 +56,6 @@ struct Document {
     DocumentStatus status;
 };
 
-struct TfDoc {
-    int id;
-    int words_count;
-    map<string, int> words_freq;
-};
 
 struct DocInfo {
     int rating;
@@ -91,22 +86,16 @@ public:
         int rating = ComputeAverageRating(ratings);
         
         id_to_doc_info_.emplace(document_id, DocInfo{rating, status});
-        TfDoc next_tf;
-        map<string, int> doc_freq;
 
         vector<string> words = SplitIntoWordsNoStop(document);
 
-        next_tf.id = document_id;
-        next_tf.words_count = words.size();
+        const double part_of_word = 1.0 / words.size();
 
         for (const string& word : words) {
-            word_to_documents_[word].insert(document_id);
-
-            ++next_tf.words_freq[word];
+            word_to_doc_freq_[word][document_id] += part_of_word;
         }
 
         document_count_ += 1;
-        tf_docs_.push_back(next_tf);
     }
 
     tuple<vector<string>, DocumentStatus> MatchDocument(const string& raw_query, int document_id) const {
@@ -117,16 +106,16 @@ public:
         vector<string> matched_words;
 
         for (const string& word: parsed.plus_words) {
-            if (word_to_documents_.count(word) > 0) {
-                if (word_to_documents_.at(word).count(document_id) > 0) {
+            if (word_to_doc_freq_.count(word) > 0) {
+                if (word_to_doc_freq_.at(word).count(document_id) > 0) {
                     matched_words.push_back(word);
                 }
             }
         }
 
         for (const string& word: parsed.minus_words) {
-            if (word_to_documents_.count(word) > 0) {
-                if (word_to_documents_.at(word).count(document_id) > 0) {
+            if (word_to_doc_freq_.count(word) > 0) {
+                if (word_to_doc_freq_.at(word).count(document_id) > 0) {
                     vector<string> empty_res;
                     return tuple(empty_res, doc_info.status);
                 }
@@ -166,8 +155,7 @@ public:
     }
 
 private:
-    map<string, set<int>> word_to_documents_;
-    vector<TfDoc> tf_docs_;
+    map<string, map<int, double>> word_to_doc_freq_;
     set<string> stop_words_;
     map<int, DocInfo> id_to_doc_info_;
     int document_count_ = 0;
@@ -198,10 +186,10 @@ private:
         vector<double> res;
 
         for (auto& word : words) {
-            if (word_to_documents_.count(word) == 0) {
+            if (word_to_doc_freq_.count(word) == 0) {
                 res.push_back(0);
             } else {
-                double idf = log(static_cast<double>(document_count_) / word_to_documents_.at(word).size());
+                double idf = log(static_cast<double>(document_count_) / word_to_doc_freq_.at(word).size());
 
                 res.push_back(idf);
             }
@@ -246,38 +234,29 @@ private:
 
         map<int, double> document_to_relevance;
 
-        for (auto& curr_doc : tf_docs_) {
-            double rel = 0;
-            bool no_match = true;
+        int index = 0;
 
-            int idx = 0;
 
-            for (const string& word : query_struct.plus_words) {
-
-                if (curr_doc.words_freq.count(word) == 0) {
-                    ++idx;
-                    continue;
-                }
-
-                no_match = false;
-
-                rel += idf[idx] * (curr_doc.words_freq.at(word) / static_cast<double>(curr_doc.words_count));
-
-                ++idx;
+        for (const string& word : query_struct.plus_words) {
+            if (word_to_doc_freq_.count(word) == 0) {
+                ++index;
+                continue;
             }
 
-            if (!no_match) {
-                document_to_relevance[curr_doc.id] = rel;
+            for (const auto& [document_id, term_freq] : word_to_doc_freq_.at(word)) {
+                document_to_relevance[document_id] += term_freq * idf[index];  
             }
-            
+
+            ++index;
         }
 
 
+
         for (const string& word : query_struct.minus_words) {
-            if (word_to_documents_.count(word) == 0) {
+            if (word_to_doc_freq_.count(word) == 0) {
                 continue;
             }
-            for (const int document_id : word_to_documents_.at(word)) {
+            for (const auto& [document_id, _] : word_to_doc_freq_.at(word)) {
                 document_to_relevance.erase(document_id);
             }
         }
