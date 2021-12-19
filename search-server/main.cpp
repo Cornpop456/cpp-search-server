@@ -146,10 +146,16 @@ public:
 
         auto filtered_documents = FilterDocuments(matched_documents, status);
 
+        const double EPSILON = 1e-6; 
+
         sort(
             filtered_documents.begin(),
             filtered_documents.end(),
-            [](const Document& lhs, const Document& rhs) {
+            [EPSILON](const Document& lhs, const Document& rhs) {
+                if (abs(lhs.relevance - rhs.relevance) < EPSILON) {
+                    return lhs.rating > rhs.rating;
+                }
+
                 return lhs.relevance > rhs.relevance;
             }
         );
@@ -331,6 +337,7 @@ void PrintMatchDocumentResult(int document_id, const vector<string>& words, Docu
     cout << "}"s << endl;
 }
 
+
 int main() {
     SearchServer search_server;
     search_server.SetStopWords("и в на"s);
@@ -338,14 +345,9 @@ int main() {
     search_server.AddDocument(0, "белый кот и модный ошейник"s,        DocumentStatus::ACTUAL, {8, -3});
     search_server.AddDocument(1, "пушистый кот пушистый хвост"s,       DocumentStatus::ACTUAL, {7, 2, 7});
     search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, {5, -12, 2, 1});
-    search_server.AddDocument(3, "ухоженный скворец евгений"s,         DocumentStatus::BANNED, {9});
 
-    const int document_count = search_server.GetDocumentCount();
-    for (int document_id = 0; document_id < document_count; ++document_id) {
-        const auto [words, status] = search_server.MatchDocument("пушистый кот"s, document_id);
-        PrintMatchDocumentResult(document_id, words, status);
+    for (const Document& document : search_server.FindTopDocuments("ухоженный кот"s)) {
+        PrintDocument(document);
     }
-} 
-
- 
+}
  
