@@ -128,12 +128,13 @@ public:
 
     } 
 
+    template <typename Predicate>
     vector<Document> FindTopDocuments(
         const string& query, 
-        DocumentStatus status = DocumentStatus::ACTUAL) const {
+        Predicate predicate) const {
         auto matched_documents = FindAllDocuments(query);
 
-        auto filtered_documents = FilterDocuments(matched_documents, status);
+        auto filtered_documents = FilterDocuments(matched_documents, predicate);
 
         const double EPSILON = 1e-6; 
 
@@ -154,6 +155,10 @@ public:
         return filtered_documents;
     }
 
+    vector<Document> FindTopDocuments(const string& query) const {
+        return FindTopDocuments(query, [](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::ACTUAL; });
+    }
+
 private:
     map<string, map<int, double>> word_to_doc_freq_;
     set<string> stop_words_;
@@ -169,11 +174,12 @@ private:
         return reduce(execution::par, ratings.begin(), ratings.end(), 0) / ratings_count;
     }
 
-    vector<Document> FilterDocuments(const vector<Document>& docs, DocumentStatus status) const {
+    template <typename Predicate>
+    vector<Document> FilterDocuments(const vector<Document>& docs, Predicate predicate) const {
         vector<Document> filtered;
 
         for (const auto& doc: docs) {
-            if (doc.status == status) {
+            if (predicate(doc.id, doc.status, doc.rating)) {
                 filtered.push_back(doc);
             }
         }
@@ -300,15 +306,6 @@ SearchServer CreateSearchServer() {
 }
 
 
-void PrintDocument(const Document& document) {
-    cout << "{ "s
-         << "document_id = "s << document.id << ", "s
-         << "relevance = "s << document.relevance << ", "s
-         << "rating = "s << document.rating
-         << " }"s << endl;
-}
-
-
 void PrintMatchDocumentResult(int document_id, const vector<string>& words, DocumentStatus status) {
     cout << "{ "s
          << "document_id = "s << document_id << ", "s
@@ -321,6 +318,14 @@ void PrintMatchDocumentResult(int document_id, const vector<string>& words, Docu
 }
 
 
+void PrintDocument(const Document& document) {
+    cout << "{ "s
+         << "document_id = "s << document.id << ", "s
+         << "relevance = "s << document.relevance << ", "s
+         << "rating = "s << document.rating
+         << " }"s << endl;
+}
+
 int main() {
     SearchServer search_server;
     search_server.SetStopWords("и в на"s);
@@ -328,9 +333,22 @@ int main() {
     search_server.AddDocument(0, "белый кот и модный ошейник"s,        DocumentStatus::ACTUAL, {8, -3});
     search_server.AddDocument(1, "пушистый кот пушистый хвост"s,       DocumentStatus::ACTUAL, {7, 2, 7});
     search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, {5, -12, 2, 1});
+    search_server.AddDocument(3, "ухоженный скворец евгений"s,         DocumentStatus::BANNED, {9});
 
-    for (const Document& document : search_server.FindTopDocuments("ухоженный кот"s)) {
+    cout << "ACTUAL by default:"s << endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s)) {
         PrintDocument(document);
     }
-}
- 
+
+    cout << "ACTUAL:"s << endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, [](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::ACTUAL; })) {
+        PrintDocument(document);
+    }
+
+    cout << "Even ids:"s << endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, [](int document_id, DocumentStatus status, int rating) { return document_id % 2 == 0; })) {
+        PrintDocument(document);
+    }
+
+    return 0;
+} 
