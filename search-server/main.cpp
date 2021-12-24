@@ -126,7 +126,16 @@ public:
         
         return tuple(matched_words, doc_info.status);
 
-    } 
+    }
+
+    vector<Document> FindTopDocuments(
+        const string& query, 
+        DocumentStatus status = DocumentStatus::ACTUAL) const {
+
+        auto predicate = [status](int document_id, DocumentStatus cur_doc_status, int rating) { return cur_doc_status == status; };
+        
+        return FindTopDocuments(query, predicate);
+    }
 
     template <typename Predicate>
     vector<Document> FindTopDocuments(
@@ -153,10 +162,6 @@ public:
           filtered_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
         }
         return filtered_documents;
-    }
-
-    vector<Document> FindTopDocuments(const string& query) const {
-        return FindTopDocuments(query, [](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::ACTUAL; });
     }
 
 private:
@@ -340,8 +345,8 @@ int main() {
         PrintDocument(document);
     }
 
-    cout << "ACTUAL:"s << endl;
-    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, [](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::ACTUAL; })) {
+    cout << "BANNED:"s << endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::BANNED)) {
         PrintDocument(document);
     }
 
