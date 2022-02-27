@@ -70,17 +70,35 @@ void TestRelevanceSort() {
     const auto found_docs = server.FindTopDocuments("dog city"s);
     ASSERT_EQUAL(found_docs[0].id, 43);
     ASSERT_EQUAL(found_docs[1].id, 42);
+    ASSERT(found_docs[0].relevance > found_docs[1].relevance);
 }
 
 void TestRatingCount() {
-    const int doc_id = 42;
-    const string content = "cat in the city"s;
-    const vector<int> ratings = {1, 2, 3};
-    
     SearchServer server;
+    
+    int doc_id = 42;
+    string content = "cat in the city"s;
+    vector<int> ratings = {1, 2, 3};
+
     server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
-    const auto found_docs = server.FindTopDocuments("cat"s);
+    auto found_docs = server.FindTopDocuments("cat"s);
     ASSERT_EQUAL(found_docs[0].rating, 2);
+
+    doc_id = 43;
+    content = "dog in the city"s;
+    ratings = {-1, -2, -3};
+
+    server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
+    found_docs = server.FindTopDocuments("dog"s);
+    ASSERT_EQUAL(found_docs[0].rating, -2);
+
+    doc_id = 44;
+    content = "horse in the city"s;
+    ratings = {-1, 1, 3};
+
+    server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
+    found_docs = server.FindTopDocuments("horse"s);
+    ASSERT_EQUAL(found_docs[0].rating, 1);
 }
 
 void TestFilterDocs() {
@@ -105,10 +123,26 @@ void TestFilterDocs() {
 void TestFilterDocsWithStatus() {
     SearchServer server;
     server.AddDocument(1, "dog likes bone"s, DocumentStatus::ACTUAL, {5,5,5,5});
-    server.AddDocument(2, "dog likes walk"s, DocumentStatus::ACTUAL, {2,2,2,2});
-    server.AddDocument(3, "dog hates cats"s,  DocumentStatus::BANNED,  {6,6,6,6});
+    server.AddDocument(2, "dog likes walk"s, DocumentStatus::IRRELEVANT, {2,2,2,2});
+    server.AddDocument(3, "dog likes sleep"s, DocumentStatus::REMOVED, {3,3,3,3});
+    server.AddDocument(4, "dog hates cats"s,  DocumentStatus::BANNED,  {6,6,6,6});
     
-    const auto found_docs = server.FindTopDocuments("dog bone"s, DocumentStatus::BANNED);
+    auto found_docs = server.FindTopDocuments("dog bone"s, DocumentStatus::BANNED);
+    
+    ASSERT_EQUAL(found_docs.size(), 1);
+    ASSERT_EQUAL(found_docs[0].id, 4);
+
+    found_docs = server.FindTopDocuments("dog bone"s, DocumentStatus::IRRELEVANT);
+    
+    ASSERT_EQUAL(found_docs.size(), 1);
+    ASSERT_EQUAL(found_docs[0].id, 2);
+
+    found_docs = server.FindTopDocuments("dog bone"s, DocumentStatus::ACTUAL);
+    
+    ASSERT_EQUAL(found_docs.size(), 1);
+    ASSERT_EQUAL(found_docs[0].id, 1);
+
+    found_docs = server.FindTopDocuments("dog bone"s, DocumentStatus::REMOVED);
     
     ASSERT_EQUAL(found_docs.size(), 1);
     ASSERT_EQUAL(found_docs[0].id, 3);
