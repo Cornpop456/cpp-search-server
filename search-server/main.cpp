@@ -187,6 +187,7 @@ private:
         int rating;
         DocumentStatus status;
     };
+    
     const set<string> stop_words_;
     map<string, map<int, double>> word_to_document_freqs_;
     map<int, DocumentData> documents_;
