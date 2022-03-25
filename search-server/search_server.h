@@ -76,24 +76,24 @@ template <typename DocumentPredicate>
 std::vector<Document> SearchServer::FindTopDocuments(const std::string& raw_query, 
     DocumentPredicate document_predicate) const {
     
-const auto query = ParseQuery(raw_query);
-auto matched_documents = FindAllDocuments(query, document_predicate);
+    const auto query = ParseQuery(raw_query);
+    auto matched_documents = FindAllDocuments(query, document_predicate);
 
-std::sort(matched_documents.begin(), matched_documents.end(), [](const Document& lhs, const Document& rhs) {
-    double epsilon =  1e-6;
+    std::sort(matched_documents.begin(), matched_documents.end(), [](const Document& lhs, const Document& rhs) {
+        double epsilon =  1e-6;
 
-    if (std::abs(lhs.relevance - rhs.relevance) < epsilon) {
-        return lhs.rating > rhs.rating;
-    } else {
-        return lhs.relevance > rhs.relevance;
-    }
-});
+        if (std::abs(lhs.relevance - rhs.relevance) < epsilon) {
+            return lhs.rating > rhs.rating;
+        } else {
+            return lhs.relevance > rhs.relevance;
+        }
+    });
 
-if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
-    matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
- }
+    if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
+        matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
+     }
 
-return matched_documents;
+    return matched_documents;
 }
 
 template <typename DocumentPredicate>
