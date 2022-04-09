@@ -66,13 +66,15 @@ std::ostream& operator<<(std::ostream& out, const IteratorRange<Iterator>& range
 
 template <typename Iterator>
  Paginator<Iterator>::Paginator(Iterator begin, Iterator end, std::size_t page_size) {
-    for (std::size_t left = distance(begin, end); left > 0;) {
-        const std::size_t current_page_size = std::min(page_size, left);
-        const Iterator current_page_end = std::next(begin, current_page_size);
-        pages_.push_back({begin, current_page_end});
+    if (end >= begin && page_size > 0) {
+        for (std::size_t left = distance(begin, end); left > 0;) {
+            const std::size_t current_page_size = std::min(page_size, left);
+            const Iterator current_page_end = std::next(begin, current_page_size);
+            pages_.push_back({begin, current_page_end});
 
-        left -= current_page_size;
-        begin = current_page_end;
+            left -= current_page_size;
+            begin = current_page_end;
+        }
     }
 }
 

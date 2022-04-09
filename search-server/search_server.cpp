@@ -4,9 +4,8 @@
 using namespace std;
 
 SearchServer::SearchServer(const string& stop_words_text)
-    : SearchServer(SplitIntoWords(stop_words_text)) 
-    {
-    }
+    : SearchServer(SplitIntoWords(stop_words_text)) {
+}
 
 void SearchServer::AddDocument(int document_id, 
     const string& document, 
@@ -106,10 +105,7 @@ int SearchServer::ComputeAverageRating(const vector<int>& ratings) {
             return 0;
         }
 
-        int rating_sum = 0;
-        for (const int rating : ratings) {
-            rating_sum += rating;
-        }
+        int rating_sum = accumulate(ratings.begin(), ratings.end(), 0);
 
         return rating_sum / static_cast<int>(ratings.size());
 }
