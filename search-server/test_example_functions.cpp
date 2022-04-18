@@ -71,8 +71,9 @@ void MatchDocuments(const SearchServer& search_server, const string& query) {
         const int document_count = search_server.GetDocumentCount(); 
 
         for (int index = 0; index < document_count; ++index) {
-            const auto it = search_server.begin();
-            const int document_id = *(it + index); 
+            auto it = search_server.begin();
+            advance(it, index);
+            const int document_id = *(it); 
             const auto [words, status] = search_server.MatchDocument(query, document_id); 
             PrintMatchDocumentResult(document_id, words, status); 
         } 
