@@ -1,4 +1,3 @@
-//Вставьте сюда своё решение из урока «‎Очередь запросов».‎
 #include "string_processing.h"
     
 using namespace std;

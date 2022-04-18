@@ -1,4 +1,3 @@
-//Вставьте сюда своё решение из урока «‎Очередь запросов».‎
 #include "search_server.h"
 
 using namespace std;
@@ -23,8 +22,17 @@ void SearchServer::AddDocument(int document_id,
     for (const string& word : words) {
         word_to_document_freqs_[word][document_id] += inv_word_count;
     }
+
+    std::set<std::string> unique_words(words.begin(), words.end());
+
+    std::map<std::string, double> word_freqs;
+
+    for (const auto& word : unique_words) {
+        word_freqs[word] = word_to_document_freqs_.at(word).at(document_id);
+    }
     
-    documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
+    documents_.emplace(document_id, 
+        DocumentData{ComputeAverageRating(ratings), status, word_freqs});
     document_ids_.push_back(document_id);
 }
 
@@ -42,10 +50,6 @@ vector<Document> SearchServer::FindTopDocuments(const string& raw_query) const {
 
 int SearchServer::GetDocumentCount() const {
     return documents_.size();
-}
-
-int SearchServer::GetDocumentId(int index) const {
-    return document_ids_.at(index);
 }
 
 tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const string& raw_query, 
@@ -74,6 +78,36 @@ tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const string& 
     }
     
     return {matched_words, documents_.at(document_id).status};
+}
+
+void SearchServer::RemoveDocument(int document_id) {
+    document_ids_.erase(find(document_ids_.begin(), document_ids_.end(), document_id));
+
+    auto word_freqs = documents_.at(document_id).word_freqs;
+
+    documents_.erase(document_id);
+
+    for (const auto& [word, _] : word_freqs) {
+        word_to_document_freqs_.at(word).erase(document_id);
+    }
+}
+
+const map<string, double>& SearchServer::GetWordFrequencies(int document_id) const {
+    static const map<string, double> empty;
+
+    if (documents_.count(document_id) == 0) {
+        return empty;
+    }
+
+    return documents_.at(document_id).word_freqs;
+}
+
+vector<int>::const_iterator SearchServer::begin() const {
+    return document_ids_.cbegin();
+}
+
+vector<int>::const_iterator SearchServer::end() const {
+    return document_ids_.cend();
 }
 
 bool SearchServer::IsStopWord(const string& word) const {

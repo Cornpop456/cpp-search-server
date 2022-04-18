@@ -1,4 +1,3 @@
-//Вставьте сюда своё решение из урока «‎Очередь запросов».‎
 #pragma once
 #include "document.h"
 #include "string_processing.h"
@@ -27,13 +26,18 @@ public:
     std::vector<Document> FindTopDocuments(const std::string& raw_query, DocumentStatus status) const;
     std::vector<Document> FindTopDocuments(const std::string& raw_query) const;
     int GetDocumentCount() const;
-    int GetDocumentId(int index) const;
-    std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& raw_query, int document_id) const;
+    std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& raw_query, 
+        int document_id) const;
+    const std::map<std::string, double>& GetWordFrequencies(int document_id) const;
+    void RemoveDocument(int document_id);
+    std::vector<int>::const_iterator begin() const;
+    std::vector<int>::const_iterator end() const;
     
 private:
     struct DocumentData {
         int rating;
         DocumentStatus status;
+        std::map<std::string, double> word_freqs;
     };
     
     const std::set<std::string> stop_words_;
