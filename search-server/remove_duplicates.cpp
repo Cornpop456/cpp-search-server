@@ -7,7 +7,7 @@ void RemoveDuplicates(SearchServer& search_server) {
 
   vector<int> ids_to_remove;
 
-  set<set<string>> duplicate_test_container;
+  set<set<string>> duplicate_container;
 
   for (const int document_id  : search_server) {
       const auto& words_freqs = search_server.GetWordFrequencies(document_id);
@@ -18,11 +18,11 @@ void RemoveDuplicates(SearchServer& search_server) {
         unique_words.insert(word);
       }
 
-      if (duplicate_test_container.count(unique_words)) {
+      if (duplicate_container.count(unique_words) > 0) {
         ids_to_remove.push_back(document_id);
         cout << "Found duplicate document id " << document_id << endl;
       } else {
-        duplicate_test_container.insert(unique_words);
+        duplicate_container.insert(unique_words);
       }
     }
 
