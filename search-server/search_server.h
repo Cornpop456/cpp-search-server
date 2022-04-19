@@ -55,6 +55,7 @@ private:
     bool IsStopWord(const std::string& word) const;
     static bool IsValidWord(const std::string& word);
     std::vector<std::string> SplitIntoWordsNoStop(const std::string& text) const;
+    
     static int ComputeAverageRating(const std::vector<int>& ratings);
 
     struct QueryWord {
@@ -71,7 +72,9 @@ private:
     };
 
     Query ParseQuery(const std::string& text) const;
+    
     double ComputeWordInverseDocumentFreq(const std::string& word) const;
+    
     template <typename DocumentPredicate>
     std::vector<Document> FindAllDocuments(const Query& query, DocumentPredicate document_predicate) const;
 };
