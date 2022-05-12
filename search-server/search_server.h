@@ -10,7 +10,6 @@
 #include <stdexcept>
 #include <string>
 #include <set>
-#include <unordered_set>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -34,11 +33,11 @@ public:
     
     std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& raw_query, 
         int document_id) const;
-
-    std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument (std::execution::sequenced_policy, 
+    
+    std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(std::execution::sequenced_policy, 
         const std::string& raw_query, 
         int document_id) const;
-
+    
     std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(std::execution::parallel_policy, 
         const std::string& raw_query, 
         int document_id) const;

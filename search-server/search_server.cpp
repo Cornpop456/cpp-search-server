@@ -62,6 +62,16 @@ tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const string& 
     }
         
     const auto query = ParseQuery(raw_query);
+    
+    for (const string& word : query.minus_words) {
+        if (word_to_document_freqs_.count(word) == 0) {
+            continue;
+        }
+        if (word_to_document_freqs_.at(word).count(document_id)) {
+            return {vector<string>{}, documents_.at(document_id).status};
+        }
+    }
+    
     vector<string> matched_words;
     
     for (const string& word : query.plus_words) {
@@ -72,17 +82,7 @@ tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const string& 
             matched_words.push_back(word);
         }
     }
-    
-    for (const string& word : query.minus_words) {
-        if (word_to_document_freqs_.count(word) == 0) {
-            continue;
-        }
-        if (word_to_document_freqs_.at(word).count(document_id)) {
-            matched_words.clear();
-            break;
-        }
-    }
-    
+  
     return {matched_words, documents_.at(document_id).status};
 }
 
@@ -102,6 +102,18 @@ tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(execution::par
     }
     
     const auto query = ParseQuery(execution::par, raw_query);
+    
+    auto it = find_if(execution::par, query.minus_words.begin(),
+        query.minus_words.end(),  
+        [this, document_id] (const string& word) {
+            return word_to_document_freqs_.at(word).count(document_id);
+        }
+    );
+    
+    if (it != query.minus_words.end()) {
+        return {vector<string>{}, documents_.at(document_id).status};
+    }
+    
     vector<string> matched_words(query.plus_words.size());
     
     copy_if(execution::par, make_move_iterator(query.plus_words.begin()), 
@@ -111,24 +123,8 @@ tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(execution::par
             return word_to_document_freqs_.at(word).count(document_id);
         }
     );
-        
-    auto it = find_if(execution::par, query.minus_words.begin(),
-        query.minus_words.end(),  
-        [this, document_id] (const string& word) {
-            return word_to_document_freqs_.at(word).count(document_id);
-        }
-    );
-    
-    if (it != query.minus_words.end()) {
-        matched_words.clear();
-        return {matched_words, documents_.at(document_id).status};
-    }
-    
-    unordered_set<string> s;
-    for (string& word : matched_words) {
-        s.insert(word);
-    }
-    
+       
+    set<string> s(matched_words.begin(), matched_words.end());
     s.erase(""s);
     
     matched_words.resize(s.size());
