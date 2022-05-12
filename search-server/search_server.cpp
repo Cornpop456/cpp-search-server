@@ -121,10 +121,16 @@ tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(execution::par
     
     if (it != query.minus_words.end()) {
         matched_words.clear();
+        return {matched_words, documents_.at(document_id).status};
     }
     
-    set<string> s(matched_words.begin(), matched_words.end());
+    unordered_set<string> s;
+    for (string& word : matched_words) {
+        s.insert(word);
+    }
+    
     s.erase(""s);
+    
     matched_words.resize(s.size());
     move(s.begin(), s.end(), matched_words.begin());
     
