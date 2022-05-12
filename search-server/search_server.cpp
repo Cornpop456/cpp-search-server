@@ -56,6 +56,10 @@ int SearchServer::GetDocumentCount() const {
 
 tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const string& raw_query, 
     int document_id) const {
+    
+    if (document_ids_.count(document_id) == 0) {
+        throw out_of_range("no such id");
+    }
         
     const auto query = ParseQuery(raw_query);
     vector<string> matched_words;
@@ -82,17 +86,93 @@ tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const string& 
     return {matched_words, documents_.at(document_id).status};
 }
 
+tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(execution::sequenced_policy, 
+    const string& raw_query, 
+    int document_id) const {
+    
+    return MatchDocument(raw_query, document_id);
+}
+
+tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(execution::parallel_policy, 
+    const string& raw_query, 
+    int document_id) const {
+    
+    if (document_ids_.count(document_id) == 0) {
+        throw out_of_range("no such id");
+    }
+    
+    const auto query = ParseQuery(execution::par, raw_query);
+    vector<string> matched_words(query.plus_words.size());
+    
+    copy_if(execution::par, make_move_iterator(query.plus_words.begin()), 
+        make_move_iterator(query.plus_words.end()), 
+        matched_words.begin(),
+        [this, document_id] (const string& word) {
+            return word_to_document_freqs_.at(word).count(document_id);
+        }
+    );
+        
+    auto it = find_if(execution::par, query.minus_words.begin(),
+        query.minus_words.end(),  
+        [this, document_id] (const string& word) {
+            return word_to_document_freqs_.at(word).count(document_id);
+        }
+    );
+    
+    if (it != query.minus_words.end()) {
+        matched_words.clear();
+    }
+    
+    set<string> s(matched_words.begin(), matched_words.end());
+    s.erase(""s);
+    matched_words.resize(s.size());
+    move(s.begin(), s.end(), matched_words.begin());
+    
+    return {matched_words, documents_.at(document_id).status};
+}
+
 void SearchServer::RemoveDocument(int document_id) {
-    document_ids_.erase(document_id);
-
-    auto word_freqs = doc_to_words_freq_.at(document_id);
-
-    documents_.erase(document_id);
-    doc_to_words_freq_.erase(document_id);
-
-    for (const auto& [word, _] : word_freqs) {
+    if (document_ids_.count(document_id) == 0) {
+        return;
+    }
+   
+    for (const auto& [word, _] : doc_to_words_freq_.at(document_id)) {
         word_to_document_freqs_.at(word).erase(document_id);
     }
+    
+    documents_.erase(document_id);
+    document_ids_.erase(document_id);
+    doc_to_words_freq_.erase(document_id);
+}
+
+void SearchServer::RemoveDocument(execution::sequenced_policy, int document_id) {
+    RemoveDocument(document_id);
+}
+
+void SearchServer::RemoveDocument(execution::parallel_policy, int document_id) {
+    if (document_ids_.count(document_id) == 0) {
+        return;
+    }
+    
+    const auto& word_freqs = GetWordFrequencies(document_id);
+
+    vector<const string*> words(word_freqs.size());
+    
+    transform(execution::par, word_freqs.begin(), word_freqs.end(), words.begin(),
+        [] (const auto& word_freq) {
+           return &word_freq.first;
+        }
+    );
+       
+    for_each(execution::par, words.begin(), words.end(), 
+        [this, document_id] (const string* word) {
+            word_to_document_freqs_.at(*word).erase(document_id);
+        }
+    );
+    
+    document_ids_.erase(document_id);
+    documents_.erase(document_id);
+    doc_to_words_freq_.erase(document_id);
 }
 
 const map<string, double>& SearchServer::GetWordFrequencies(int document_id) const {
@@ -170,13 +250,43 @@ SearchServer::QueryWord SearchServer::ParseQueryWord(const string& text) const {
 SearchServer::Query SearchServer::ParseQuery(const string& text) const {
     Query result;
     
+    set<string> plus_words;
+    set<string> minus_words;
+    
     for (const string& word : SplitIntoWords(text)) {
         const auto query_word = ParseQueryWord(word);
         if (!query_word.is_stop) {
             if (query_word.is_minus) {
-                result.minus_words.insert(query_word.data);
+                minus_words.insert(query_word.data);
             } else {
-                result.plus_words.insert(query_word.data);
+                plus_words.insert(query_word.data);
+            }
+        }
+    }
+    
+    result.plus_words.resize(plus_words.size());
+    result.minus_words.resize(minus_words.size());
+    
+    move(plus_words.begin(), plus_words.end(), result.plus_words.begin());
+    move(minus_words.begin(), minus_words.end(), result.minus_words.begin());
+    
+    return result;
+}
+
+SearchServer::Query SearchServer::ParseQuery(execution::sequenced_policy, const string& text) const {
+       return ParseQuery(text);
+}
+
+SearchServer::Query SearchServer::ParseQuery(execution::parallel_policy, const string& text) const {
+    Query result;
+    
+    for (const string& word : SplitIntoWords(text)) {
+        const auto query_word = ParseQueryWord(word);
+        if (!query_word.is_stop) {
+            if (query_word.is_minus) {
+                result.minus_words.push_back(query_word.data);
+            } else {
+                result.plus_words.push_back(query_word.data);
             }
         }
     }

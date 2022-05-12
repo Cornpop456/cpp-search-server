@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <execution>
 #include <map>
 #include <numeric>
 #include <stdexcept>
@@ -32,10 +33,20 @@ public:
     
     std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& raw_query, 
         int document_id) const;
+
+    std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument (std::execution::sequenced_policy, 
+        const std::string& raw_query, 
+        int document_id) const;
+
+    std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(std::execution::parallel_policy, 
+        const std::string& raw_query, 
+        int document_id) const;
     
     const std::map<std::string, double>& GetWordFrequencies(int document_id) const;
     
     void RemoveDocument(int document_id);
+    void RemoveDocument(std::execution::sequenced_policy, int document_id);
+    void RemoveDocument(std::execution::parallel_policy, int document_id);
     
     std::set<int>::const_iterator begin() const;
     std::set<int>::const_iterator end() const;
@@ -67,11 +78,13 @@ private:
     QueryWord ParseQueryWord(const std::string& text) const;
 
     struct Query {
-        std::set<std::string> plus_words;
-        std::set<std::string> minus_words;
+        std::vector<std::string> plus_words;
+        std::vector<std::string> minus_words;
     };
 
     Query ParseQuery(const std::string& text) const;
+    Query ParseQuery(std::execution::sequenced_policy, const std::string& text) const;
+    Query ParseQuery(std::execution::parallel_policy, const std::string& text) const;
     
     double ComputeWordInverseDocumentFreq(const std::string& word) const;
     
