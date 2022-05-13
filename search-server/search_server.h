@@ -22,19 +22,19 @@ class SearchServer {
 public:
     template <typename StringContainer>
     explicit SearchServer(const StringContainer& stop_words);
-    explicit SearchServer(const std::string_view& stop_words_text);
+    explicit SearchServer(std::string_view stop_words_text);
     explicit SearchServer(const std::string& stop_words_text);
     
     void AddDocument(int document_id, std::string_view document, DocumentStatus status, const std::vector<int>& ratings);
     
     template <typename DocumentPredicate>
-    std::vector<Document> FindTopDocuments(const std::string_view& raw_query, 
+    std::vector<Document> FindTopDocuments(std::string_view raw_query, 
         DocumentPredicate document_predicate) const;
     
-    std::vector<Document> FindTopDocuments(const std::string_view& raw_query, 
+    std::vector<Document> FindTopDocuments(std::string_view raw_query, 
         DocumentStatus status) const;
     
-    std::vector<Document> FindTopDocuments(const std::string_view& raw_query) const;
+    std::vector<Document> FindTopDocuments(std::string_view raw_query) const;
     
     int GetDocumentCount() const;
        
@@ -68,8 +68,8 @@ private:
     std::map<int, DocumentData> documents_;
     std::set<int> document_ids_;
 
-    bool IsStopWord(const std::string_view& word) const;
-    static bool IsValidWord(const std::string_view& word);
+    bool IsStopWord(std::string_view word) const;
+    static bool IsValidWord(std::string_view word);
     std::vector<std::string_view> SplitIntoWordsNoStop(std::string_view text) const;
     
     static int ComputeAverageRating(const std::vector<int>& ratings);
@@ -107,7 +107,7 @@ SearchServer::SearchServer(const StringContainer& stop_words)
 }
 
 template <typename DocumentPredicate>
-std::vector<Document> SearchServer::FindTopDocuments(const std::string_view& raw_query, 
+std::vector<Document> SearchServer::FindTopDocuments(std::string_view raw_query, 
     DocumentPredicate document_predicate) const {
     
     const auto query = ParseQuery(raw_query);

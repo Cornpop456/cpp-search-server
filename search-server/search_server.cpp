@@ -2,7 +2,7 @@
 
 using namespace std;
 
-SearchServer::SearchServer(const string_view& stop_words_text)
+SearchServer::SearchServer(string_view stop_words_text)
     : SearchServer(SplitIntoWords(stop_words_text)) {
 }
 
@@ -44,7 +44,7 @@ void SearchServer::AddDocument(int document_id,
     document_ids_.insert(document_id);
 }
 
-vector<Document> SearchServer::FindTopDocuments(const string_view& raw_query, 
+vector<Document> SearchServer::FindTopDocuments(string_view raw_query, 
     DocumentStatus status) const {
     
     return FindTopDocuments(raw_query, [status](int document_id, DocumentStatus document_status, int rating) {
@@ -52,7 +52,7 @@ vector<Document> SearchServer::FindTopDocuments(const string_view& raw_query,
      });
 }
 
-vector<Document> SearchServer::FindTopDocuments(const string_view& raw_query) const {
+vector<Document> SearchServer::FindTopDocuments(string_view raw_query) const {
     return FindTopDocuments(raw_query, DocumentStatus::ACTUAL);
 }
 
@@ -90,17 +90,17 @@ void SearchServer::RemoveDocument(execution::parallel_policy, int document_id) {
     
     const auto& word_freqs = GetWordFrequencies(document_id);
 
-    vector<const string_view*> words(word_freqs.size());
+    vector<string_view> words(word_freqs.size());
     
     transform(execution::par, word_freqs.begin(), word_freqs.end(), words.begin(),
         [] (const auto& word_freq) {
-           return &word_freq.first;
+           return word_freq.first;
         }
     );
        
     for_each(execution::par, words.begin(), words.end(), 
-        [this, document_id] (const string_view* word) {
-            word_to_document_freqs_.at(string(*word)).erase(document_id);
+        [this, document_id] (string_view word) {
+            word_to_document_freqs_.at(string(word)).erase(document_id);
         }
     );
     
@@ -127,11 +127,11 @@ set<int>::const_iterator SearchServer::end() const {
     return document_ids_.cend();
 }
 
-bool SearchServer::IsStopWord(const string_view& word) const {
+bool SearchServer::IsStopWord(string_view word) const {
     return stop_words_.count(word) > 0;
 }
 
-bool SearchServer::IsValidWord(const string_view& word) {
+bool SearchServer::IsValidWord(string_view word) {
     return none_of(word.begin(), word.end(), [](char c) {
         return c >= '\0' && c < ' ';
     });
