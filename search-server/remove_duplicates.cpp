@@ -7,12 +7,12 @@ void RemoveDuplicates(SearchServer& search_server) {
 
   vector<int> ids_to_remove;
 
-  set<set<string>> duplicate_container;
+  set<set<string_view>> duplicate_container;
 
   for (const int document_id  : search_server) {
       const auto& words_freqs = search_server.GetWordFrequencies(document_id);
 
-      set<string> unique_words;
+      set<string_view> unique_words;
 
       for (const auto& [word, _] : words_freqs) {
         unique_words.insert(word);

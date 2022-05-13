@@ -14,7 +14,7 @@ void PrintDocument(const Document& document) {
 
  
 void PrintMatchDocumentResult(int document_id, 
-    const vector<string>& words, 
+    const vector<string_view>& words, 
     DocumentStatus status) { 
 
     cout << "{ "s 
@@ -25,7 +25,7 @@ void PrintMatchDocumentResult(int document_id,
 
          << "words ="s; 
 
-    for (const string& word : words) { 
+    for (const string_view& word : words) { 
         cout << ' ' << word; 
     } 
 

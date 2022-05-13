@@ -5,7 +5,7 @@
 void PrintDocument(const Document& document);
 
 void PrintMatchDocumentResult(int document_id, 
-    const std::vector<std::string>& words, 
+    const std::vector<std::string_view>& words, 
     DocumentStatus status);
 
 void AddDocument(SearchServer& search_server, 
