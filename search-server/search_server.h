@@ -21,6 +21,8 @@ const int MAX_RESULT_DOCUMENT_COUNT = 5;
 
 class SearchServer {
 public:
+    using MatchResult = std::tuple<std::vector<std::string_view>, DocumentStatus>;
+    
     template <typename StringContainer>
     explicit SearchServer(const StringContainer& stop_words);
     explicit SearchServer(std::string_view stop_words_text);
@@ -51,12 +53,10 @@ public:
     int GetDocumentCount() const;
        
     template <typename Policy>
-    std::tuple<std::vector<std::string_view>, DocumentStatus>
-    MatchDocument(Policy&& policy, std::string_view raw_query,
+    MatchResult MatchDocument(Policy&& policy, std::string_view raw_query,
         int document_id) const;
     
-    std::tuple<std::vector<std::string_view>, DocumentStatus>
-    MatchDocument( std::string_view raw_query,
+    MatchResult MatchDocument( std::string_view raw_query,
         int document_id) const;
    
     const std::map<std::string_view, double>& GetWordFrequencies(int document_id) const;
@@ -100,15 +100,17 @@ private:
         bool is_parallel;
     };
 
-    Query ParseQuery(std::string_view text) const;
-    Query ParseQuery(std::execution::sequenced_policy, std::string_view text) const;
-    Query ParseQuery(std::execution::parallel_policy, std::string_view text) const;
+    Query ParseQuery(std::string_view text, bool parallel = false) const;
     
     double ComputeWordInverseDocumentFreq(const std::string& word) const;
     
     template <typename DocumentPredicate>
     std::vector<Document> FindAllDocuments(std::execution::sequenced_policy,
         const Query& query, DocumentPredicate document_predicate) const;
+    
+    template <typename DocumentPredicate>
+    std::vector<Document> FindAllDocuments(const Query& query, 
+        DocumentPredicate document_predicate) const;
     
     template <typename DocumentPredicate>
     std::vector<Document> FindAllDocuments(std::execution::parallel_policy,
@@ -212,6 +214,13 @@ std::vector<Document> SearchServer::FindAllDocuments(std::execution::sequenced_p
 }
 
 template <typename DocumentPredicate>
+std::vector<Document> SearchServer::FindAllDocuments(const Query& query, 
+    DocumentPredicate document_predicate) const {
+    
+    return FindAllDocuments(std::execution::seq, query, document_predicate);
+}
+
+template <typename DocumentPredicate>
 std::vector<Document> SearchServer::FindAllDocuments(std::execution::parallel_policy, 
     const Query& query, 
     DocumentPredicate document_predicate) const {
@@ -259,15 +268,15 @@ std::vector<Document> SearchServer::FindAllDocuments(std::execution::parallel_po
 }
 
 template <class Policy>
-std::tuple<std::vector<std::string_view>, DocumentStatus> 
-SearchServer::MatchDocument(Policy&& policy,
+SearchServer::MatchResult SearchServer::MatchDocument(Policy&& policy,
     std::string_view raw_query, int document_id) const {
     
     if (documents_.count(document_id) == 0) {
         throw std::out_of_range("no such id");
     }
 
-    Query query = ParseQuery(policy, raw_query);
+    Query query = ParseQuery(raw_query, 
+        std::is_same_v<Policy, std::execution::parallel_policy>);
 
     if (any_of(policy, query.minus_words.begin(), query.minus_words.end(),
             [this, document_id] (const std::string_view& word) {

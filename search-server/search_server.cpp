@@ -58,7 +58,7 @@ int SearchServer::GetDocumentCount() const {
     return documents_.size();
 }
 
-tuple<vector<string_view>, DocumentStatus> SearchServer::MatchDocument(string_view raw_query,
+SearchServer::MatchResult SearchServer::MatchDocument(string_view raw_query,
     int document_id) const {
     return MatchDocument(execution::seq, raw_query, document_id);
 }
@@ -185,17 +185,32 @@ SearchServer::QueryWord SearchServer::ParseQueryWord(string_view text) const {
     return {word, is_minus, IsStopWord(word)};
 }
 
-SearchServer::Query SearchServer::ParseQuery(string_view text) const {
+SearchServer::Query SearchServer::ParseQuery(string_view text, bool parallel) const {
     Query result;
+    result.is_parallel = parallel;
     
-    result.is_parallel = false;
+    if (parallel) {
+        for (const string_view& word : SplitIntoWords(text)) {
+            const auto query_word = ParseQueryWord(word);
+            if (!query_word.is_stop) {
+                if (query_word.is_minus) {
+                    result.minus_words.push_back(query_word.data);
+                } else {
+                    result.plus_words.push_back(query_word.data);
+                }
+            }
+        }
+    
+        return result;
+    }
+    
+    // дублирование циклов for, но так более эффективно, чем добавлять в вектор 
+    // с дубликатами, а затем перекладывать в set и обратно
     
     set<string_view> plus_words;
     set<string_view> minus_words;
     
-    const auto words = SplitIntoWords(text);
-    
-    for (const string_view& word : words) {
+    for (const string_view& word : SplitIntoWords(text)) {
          const auto query_word = ParseQueryWord(word);
 
         if (!query_word.is_stop) {
@@ -207,33 +222,6 @@ SearchServer::Query SearchServer::ParseQuery(string_view text) const {
     
     result.plus_words.assign(plus_words.begin(), plus_words.end());
     result.minus_words.assign(minus_words.begin(), minus_words.end());
-    
-    return result;
-}
-
-SearchServer::Query SearchServer::ParseQuery(execution::sequenced_policy, 
-    string_view text) const {
-    
-    return ParseQuery(text);
-}
-
-SearchServer::Query SearchServer::ParseQuery(execution::parallel_policy, 
-    string_view text) const {
-   
-    Query result;
-    
-    result.is_parallel = true;
-    
-    for (const string_view& word : SplitIntoWords(text)) {
-        const auto query_word = ParseQueryWord(word);
-        if (!query_word.is_stop) {
-            if (query_word.is_minus) {
-                result.minus_words.push_back(query_word.data);
-            } else {
-                result.plus_words.push_back(query_word.data);
-            }
-        }
-    }
     
     return result;
 }
