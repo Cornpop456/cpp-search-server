@@ -229,8 +229,7 @@ std::vector<Document> SearchServer::FindAllDocuments(std::execution::parallel_po
             for (const auto [document_id, term_freq] : word_to_document_freqs_.at(std::string(word))) {
                 const auto& document_data = documents_.at(document_id);
                 if (document_predicate(document_id, document_data.status, document_data.rating)) {
-                    double& value = document_to_relevance[document_id].ref_to_value;
-                    value += term_freq * inverse_document_freq;
+                    document_to_relevance[document_id].ref_to_value += term_freq * inverse_document_freq;
                 }
             }
         }
@@ -238,7 +237,7 @@ std::vector<Document> SearchServer::FindAllDocuments(std::execution::parallel_po
     
     std::map<int, double> doc_to_rel_ordinary = document_to_relevance.BuildOrdinaryMap();
              
-    std::for_each(std::execution::par, query.minus_words.begin(),
+    std::for_each(std::execution::seq, query.minus_words.begin(),
         query.minus_words.end(), 
         [this, &doc_to_rel_ordinary] (std::string_view word) {
             if (word_to_document_freqs_.count(word) == 0) {
